@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Cytoscape.js Graph from Text Input</title>
+    <!-- Load Cytoscape.js -->
+    <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .top-area {
+            flex: 0 0 auto;
+            padding: 10px;
+            background: #fafafa;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .bottom-area {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #cy {
+            flex: 1;
+            border-top: 1px solid #ccc;
+        }
+
+        textarea {
+            width: 95%;
+            height: 10em;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Top area: Text input and button. -->
+        <div class="top-area">
+            <label for="graphInput">Enter node definitions:</label><br>
+            <textarea id="graphInput" rows="6" cols="80">
+node_(0,-q1)*
+node_(1,-q2)*
+node_(2,-q3)*
+node_(3,-q4)*
+node_(4,q1,q2,-p1,-p2)*
+node_(5,q3,q4,p1,p2)
+            </textarea>
+            <br>
+            <button id="renderBtn">Render Graph</button>
+        </div>
+
+        <!-- Bottom area: Graph display. -->
+        <div class="bottom-area">
+            <div id="cy"></div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Parses the input string to generate nodes and edges for Cytoscape.js.
+         * Example input:
+         *   node_(0,-q1)*node_(1,q2)*node_(2,q1,-q2,p1,-p1).
+         */
+        function parseGraph(str) {
+            // Remove newlines and extra spaces.
+            // For example, convert all whitespace to "".
+            const cleanedStr = str.replace(/\s+/g, '');
+
+            // Split by "*" to get individual node definitions.
+            const nodeStrings = cleanedStr.split('*').map(s => s.trim()).filter(s => s.length > 0);
+
+            // This object will hold node IDs mapped to { plus: [...], minus: [...] }.
+            const nodeDataMap = {};
+            const nodes = [];
+
+            // 1. Parse each node definition.
+            nodeStrings.forEach(ns => {
+                // Extract the part inside node_(...).
+                // Example: "node_(0,-q1)" -> capture "0,-q1".
+                const match = ns.match(/node_\(([^)]*)\)/);
+                if (!match) return; // If parsing fails, skip.
+
+                // match[1] would be something like "0,-q1".
+                const inside = match[1].trim();
+                const parts = inside.split(',').map(s => s.trim());
+                if (parts.length === 0) return;
+
+                // The first part is the node ID, the rest are variables.
+                const nodeId = parts[0];
+                const vars = parts.slice(1);
+
+                const plusVars = [];
+                const minusVars = [];
+
+                // Separate variables into plusVars and minusVars.
+                vars.forEach(v => {
+                    if (v.startsWith('-')) {
+                        minusVars.push(v.substring(1)); // Remove the leading '-'.
+                    } else {
+                        plusVars.push(v);
+                    }
+                });
+
+                // Store in our data map.
+                nodeDataMap[nodeId] = { plus: plusVars, minus: minusVars };
+
+                // Add to Cytoscape nodes.
+                nodes.push({ data: { id: nodeId } });
+            });
+
+            // 2. Generate edges.
+            //    (a) For different nodes, connect them if they share a variable as plus vs minus.
+            //    (b) For the same node, if it has both +v and -v, create a self-loop.
+            const edges = [];
+            const edgeSet = new Set(); // To avoid duplicates.
+
+            const nodeIds = Object.keys(nodeDataMap);
+
+            // (b) Check for self-loops in the same node.
+            nodeIds.forEach(id => {
+                const plusList = nodeDataMap[id].plus;
+                const minusList = nodeDataMap[id].minus;
+                // If the same variable appears in both plus and minus, it's a self-loop.
+                plusList.forEach(v => {
+                    if (minusList.includes(v)) {
+                        const edgeId = `self-${id}:${v}`;
+                        edgeSet.add(edgeId);
+                    }
+                });
+            });
+
+            // (a) Check between different nodes.
+            for (let i = 0; i < nodeIds.length; i++) {
+                for (let j = i + 1; j < nodeIds.length; j++) {
+                    const idA = nodeIds[i];
+                    const idB = nodeIds[j];
+                    const plusA = nodeDataMap[idA].plus;
+                    const minusA = nodeDataMap[idA].minus;
+                    const plusB = nodeDataMap[idB].plus;
+                    const minusB = nodeDataMap[idB].minus;
+
+                    // If A has -v and B has +v, connect them.
+                    minusA.forEach(v => {
+                        if (plusB.includes(v)) {
+                            edgeSet.add(`${idA}-${idB}:${v}`);
+                        }
+                    });
+
+                    // If A has +v and B has -v, connect them.
+                    plusA.forEach(v => {
+                        if (minusB.includes(v)) {
+                            edgeSet.add(`${idA}-${idB}:${v}`);
+                        }
+                    });
+                }
+            }
+
+            // Convert edgeSet strings into objects for Cytoscape.
+            edgeSet.forEach(eStr => {
+                // If it's a self-loop (e.g., "self-2:p1").
+                if (eStr.startsWith('self-')) {
+                    // "self-2:p1" -> ["self-2","p1"] -> nodeId = 2, varName = p1.
+                    const [rest, varName] = eStr.split(':');
+                    const nodeId = rest.replace('self-', '');
+                    edges.push({
+                        data: {
+                            id: eStr,
+                            source: nodeId,
+                            target: nodeId,
+                            label: varName
+                        }
+                    });
+                } else {
+                    // Normal edge: "0-4:q1" -> source=0, target=4, label=q1.
+                    const [srcTgt, varName] = eStr.split(':');
+                    const [source, target] = srcTgt.split('-');
+                    edges.push({
+                        data: {
+                            id: eStr,
+                            source: source,
+                            target: target,
+                            label: varName
+                        }
+                    });
+                }
+            });
+
+            // Return the combined array of node and edge definitions.
+            return [...nodes, ...edges];
+        }
+
+        // Render the graph when the button is clicked.
+        document.getElementById('renderBtn').addEventListener('click', () => {
+            const inputStr = document.getElementById('graphInput').value;
+            const elements = parseGraph(inputStr);
+
+            // Initialize Cytoscape with the parsed elements.
+            cytoscape({
+                container: document.getElementById('cy'),
+                elements: elements,
+                style: [
+                    {
+                        selector: 'node',
+                        style: {
+                            'label': 'data(id)',
+                            'text-valign': 'center',
+                            'background-color': '#BFD7B5',
+                            'border-color': '#333',
+                            'border-width': 1,
+                            'color': '#000'
+                        }
+                    },
+                    {
+                        selector: 'edge',
+                        style: {
+                            'label': 'data(label)',
+                            'text-rotation': 'autorotate',
+                            'curve-style': 'bezier',
+                            'target-arrow-shape': 'triangle',
+                            'line-color': '#999',
+                            'target-arrow-color': '#999'
+                        }
+                    }
+                ],
+                layout: {
+                    name: 'cose',
+                    padding: 30
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
