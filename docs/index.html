@@ -7,11 +7,25 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.4/cytoscape.min.js"
         integrity="sha512-xpXUCbrkyJCwC5noJXZqec9rSXdRgFfDoL7Q9/pCPe54Y04OlqwPobMcNuA5NPJ7DRR51OIr6xcOH2wUspyKDQ=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+        integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
         body {
             margin: 0;
             padding: 0;
             font-family: sans-serif;
+            position: relative;
+            /* To position the GitHub link */
+        }
+
+        .github-link {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            color: black;
+            text-decoration: none;
         }
 
         .container {
@@ -46,6 +60,9 @@
 </head>
 
 <body>
+    <a href="https://github.com/tueda/diagrammatica" class="github-link" target="_blank">
+        <i class="fab fa-github"></i>
+    </a>
     <div class="container">
         <!-- Top area: Text input and button. -->
         <div class="top-area">
