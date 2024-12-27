@@ -67,14 +67,7 @@
         <!-- Top area: Text input and button. -->
         <div class="top-area">
             <label for="graphInput">Enter node definitions:</label><br>
-            <textarea id="graphInput" rows="6" cols="80">
-node_(0,-q1)*
-node_(1,-q2)*
-node_(2,-q3)*
-node_(3,-q4)*
-node_(4,q1,q2,-p1,-p2)*
-node_(5,q3,q4,p1,p2)
-            </textarea>
+            <textarea id="graphInput" rows="6" cols="80"></textarea>
             <br>
             <button id="renderBtn">Render</button>
         </div>
@@ -86,18 +79,34 @@ node_(5,q3,q4,p1,p2)
     </div>
 
     <script>
+        // Read the "graph" query parameter on page load, and set the textarea.
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const savedGraph = params.get('graph'); // get value of ?graph=...
+            if (savedGraph) {
+                const decoded = decodeURIComponent(savedGraph);
+                document.getElementById('graphInput').value = decoded;
+            } else {
+                const defaultValue = `node_(0,-q1)*
+node_(1,-q2)*
+node_(2,-q3)*
+node_(3,-q4)*
+node_(4,q1,q2,-p1,-p2)*
+node_(5,q3,q4,p1,p2)`;
+                document.getElementById('graphInput').value = defaultValue;
+            }
+            document.getElementById('renderBtn').click();
+        });
+
         /**
          * Parses the input string to generate nodes and edges for Cytoscape.js.
          * Example input:
          *   node_(0,-q1)*node_(1,q2)*node_(2,q1,-q2,p1,-p1).
          */
         function parseGraph(str) {
-            // Remove newlines and extra spaces.
-            // For example, convert all whitespace to "".
-            const cleanedStr = str.replace(/\s+/g, '');
-
-            // Split by "*" to get individual node definitions.
-            const nodeStrings = cleanedStr.split('*').map(s => s.trim()).filter(s => s.length > 0);
+            // Instead of removing all whitespace, we only split by "*".
+            // We'll keep the original string otherwise intact.
+            const nodeStrings = str.split('*').map(s => s.trim()).filter(s => s.length > 0);
 
             // This object will hold node IDs mapped to { plus: [...], minus: [...] }.
             const nodeDataMap = {};
@@ -221,10 +230,24 @@ node_(5,q3,q4,p1,p2)
 
         // Render the graph when the button is clicked.
         document.getElementById('renderBtn').addEventListener('click', () => {
-            const inputStr = document.getElementById('graphInput').value;
-            const elements = parseGraph(inputStr);
+            // Get the text area contents (with all whitespace and newlines kept).
+            let inputStr = document.getElementById('graphInput').value;
 
-            // Initialize Cytoscape with the parsed elements.
+            // Trim trailing whitespace.
+            inputStr = inputStr.replace(/\s+$/, '');
+
+            // Update the query parameter ?graph=...
+            const params = new URLSearchParams(window.location.search);
+            const encoded = encodeURIComponent(inputStr);
+            params.set('graph', encoded);
+
+            // Update the URL without reloading the page.
+            // (We keep the same pathname and hash if any.)
+            const newUrl = window.location.pathname + '?' + params.toString() + window.location.hash;
+            window.history.replaceState({}, '', newUrl);
+
+            // Parse the input string and render the graph.
+            const elements = parseGraph(inputStr);
             cytoscape({
                 container: document.getElementById('cy'),
                 elements: elements,
