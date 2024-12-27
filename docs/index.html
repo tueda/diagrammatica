@@ -7,6 +7,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.4/cytoscape.min.js"
         integrity="sha512-xpXUCbrkyJCwC5noJXZqec9rSXdRgFfDoL7Q9/pCPe54Y04OlqwPobMcNuA5NPJ7DRR51OIr6xcOH2wUspyKDQ=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"
+        integrity="sha512-qtX0GLM3qX8rxJN1gyDfcnMFFrKvixfoEOwbBib9VafR5vbChV5LeE5wSI/x+IlCkTY5ZFddFDCCfaVJJNnuKQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
         integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -79,12 +82,12 @@
     </div>
 
     <script>
-        // Read the "graph" query parameter on page load, and set the textarea.
+        // Read the "g" query parameter on page load, and set the textarea.
         window.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
-            const savedGraph = params.get('graph'); // get value of ?graph=...
+            const savedGraph = params.get('g'); // get value of ?g=...
             if (savedGraph) {
-                const decoded = decodeURIComponent(savedGraph);
+                const decoded = LZString.decompressFromEncodedURIComponent(savedGraph);
                 document.getElementById('graphInput').value = decoded;
             } else {
                 const defaultValue = `node_(0,-q1)*
@@ -236,10 +239,10 @@ node_(5,q3,q4,p1,p2)`;
             // Trim trailing whitespace.
             inputStr = inputStr.replace(/\s+$/, '');
 
-            // Update the query parameter ?graph=...
+            // Update the query parameter ?g=...
             const params = new URLSearchParams(window.location.search);
-            const encoded = encodeURIComponent(inputStr);
-            params.set('graph', encoded);
+            const encoded = LZString.compressToEncodedURIComponent(inputStr);
+            params.set('g', encoded);
 
             // Update the URL without reloading the page.
             // (We keep the same pathname and hash if any.)
