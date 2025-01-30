@@ -50,9 +50,16 @@
             flex-direction: column;
         }
 
-        #cy {
+        #cy-container {
             flex: 1;
             border-top: 1px solid #ccc;
+            display: grid;
+            grid-gap: 1px;
+        }
+
+        .diagram {
+            width: 100%;
+            height: 100%;
         }
 
         textarea {
@@ -77,7 +84,7 @@
 
         <!-- Bottom area: Graph display. -->
         <div class="bottom-area">
-            <div id="cy"></div>
+            <div id="cy-container"></div>
         </div>
     </div>
 
@@ -231,7 +238,79 @@ node_(5,q3,q4,p1,p2)`;
             return [...nodes, ...edges];
         }
 
-        // Render the graph when the button is clicked.
+        /**
+         * Extracts multiple diagram definitions, ignoring leading coefficients such as
+         *  "1/4 *" or " -3 *", and returns an array of node_(...)*node_(...) strings.
+         */
+        function parseDiagrams(inputStr) {
+            const regex = /([+\-]?\s*\d*(?:\/\d+)?\s*\*?\s*)?(node_\([^)]*\)(?:\s*\*\s*node_\([^)]*\))*)/g;
+            const result = [];
+            let match;
+            while ((match = regex.exec(inputStr)) !== null) {
+                const nodesPart = match[2];
+                if (nodesPart) {
+                    result.push(nodesPart.trim());
+                }
+            }
+            return result.length > 0 ? result : [inputStr];
+        }
+
+        /**
+         * Renders one Cytoscape canvas for each diagram,
+         * arranging them in a grid that accommodates any number of diagrams.
+         */
+        function renderAllDiagrams(diagramStrings) {
+            const n = diagramStrings.length;
+            const cols = Math.ceil(Math.sqrt(n));
+            const rows = Math.ceil(n / cols);
+
+            const container = document.getElementById('cy-container');
+            container.innerHTML = '';
+            container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+            container.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+
+            diagramStrings.forEach(ds => {
+                const cell = document.createElement('div');
+                cell.className = 'diagram';
+                container.appendChild(cell);
+
+                const elements = parseGraph(ds);
+                cytoscape({
+                    container: cell,
+                    elements: elements,
+                    style: [
+                        {
+                            selector: 'node',
+                            style: {
+                                'label': 'data(id)',
+                                'text-valign': 'center',
+                                'background-color': '#BFD7B5',
+                                'border-color': '#333',
+                                'border-width': 1,
+                                'color': '#000'
+                            }
+                        },
+                        {
+                            selector: 'edge',
+                            style: {
+                                'label': 'data(label)',
+                                'text-rotation': 'autorotate',
+                                'curve-style': 'bezier',
+                                'target-arrow-shape': 'triangle',
+                                'line-color': '#999',
+                                'target-arrow-color': '#999'
+                            }
+                        }
+                    ],
+                    layout: {
+                        name: 'cose',
+                        padding: 30
+                    }
+                });
+            });
+        }
+
+        // Render the graph(s) when the button is clicked.
         document.getElementById('renderBtn').addEventListener('click', () => {
             // Get the text area contents (with all whitespace and newlines kept).
             let inputStr = document.getElementById('graphInput').value;
@@ -250,39 +329,8 @@ node_(5,q3,q4,p1,p2)`;
             window.history.replaceState({}, '', newUrl);
 
             // Parse the input string and render the graph.
-            const elements = parseGraph(inputStr);
-            cytoscape({
-                container: document.getElementById('cy'),
-                elements: elements,
-                style: [
-                    {
-                        selector: 'node',
-                        style: {
-                            'label': 'data(id)',
-                            'text-valign': 'center',
-                            'background-color': '#BFD7B5',
-                            'border-color': '#333',
-                            'border-width': 1,
-                            'color': '#000'
-                        }
-                    },
-                    {
-                        selector: 'edge',
-                        style: {
-                            'label': 'data(label)',
-                            'text-rotation': 'autorotate',
-                            'curve-style': 'bezier',
-                            'target-arrow-shape': 'triangle',
-                            'line-color': '#999',
-                            'target-arrow-color': '#999'
-                        }
-                    }
-                ],
-                layout: {
-                    name: 'cose',
-                    padding: 30
-                }
-            });
+            const diagrams = parseDiagrams(inputStr);
+            renderAllDiagrams(diagrams);
         });
     </script>
 </body>
