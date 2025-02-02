@@ -339,6 +339,12 @@ node_(5,q3,q4,p1,p2)`;
         document.getElementById('renderBtn').addEventListener('click', () => {
             renderGraph();
         });
+        // Auto-render on input change with debounce.
+        let renderTimeout;
+        document.getElementById('graphInput').addEventListener('input', () => {
+            clearTimeout(renderTimeout);
+            renderTimeout = setTimeout(renderGraph, 500);
+        });
     </script>
 </body>
 
