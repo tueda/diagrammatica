@@ -144,9 +144,9 @@ node_(5,q3,q4,p1,p2)`;
                 // Separate variables into plusVars and minusVars.
                 vars.forEach(v => {
                     if (v.startsWith('-')) {
-                        minusVars.push(v.substring(1)); // Remove the leading '-'.
+                        minusVars.push(v.substring(1)); // Remove the leading '-' indicating outgoing.
                     } else {
-                        plusVars.push(v);
+                        plusVars.push(v); // Positive indicates incoming.
                     }
                 });
 
@@ -158,7 +158,8 @@ node_(5,q3,q4,p1,p2)`;
             });
 
             // 2. Generate edges.
-            //    (a) For different nodes, connect them if they share a variable as plus vs minus.
+            //    (a) For different nodes, connect them if one node has -v (outgoing)
+            //        and another node has +v (incoming).
             //    (b) For the same node, if it has both +v and -v, create a self-loop.
             const edges = [];
             const edgeSet = new Set(); // To avoid duplicates.
@@ -179,30 +180,17 @@ node_(5,q3,q4,p1,p2)`;
             });
 
             // (a) Check between different nodes.
-            for (let i = 0; i < nodeIds.length; i++) {
-                for (let j = i + 1; j < nodeIds.length; j++) {
-                    const idA = nodeIds[i];
-                    const idB = nodeIds[j];
-                    const plusA = nodeDataMap[idA].plus;
-                    const minusA = nodeDataMap[idA].minus;
-                    const plusB = nodeDataMap[idB].plus;
-                    const minusB = nodeDataMap[idB].minus;
-
-                    // If A has -v and B has +v, connect them.
-                    minusA.forEach(v => {
-                        if (plusB.includes(v)) {
-                            edgeSet.add(`${idA}-${idB}:${v}`);
+            nodeIds.forEach(id => {
+                const minusList = nodeDataMap[id].minus;
+                minusList.forEach(v => {
+                    nodeIds.forEach(otherId => {
+                        if (otherId === id) return;
+                        if (nodeDataMap[otherId].plus.includes(v)) {
+                            edgeSet.add(`${id}-${otherId}:${v}`);
                         }
                     });
-
-                    // If A has +v and B has -v, connect them.
-                    plusA.forEach(v => {
-                        if (minusB.includes(v)) {
-                            edgeSet.add(`${idA}-${idB}:${v}`);
-                        }
-                    });
-                }
-            }
+                });
+            });
 
             // Convert edgeSet strings into objects for Cytoscape.
             edgeSet.forEach(eStr => {
