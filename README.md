@@ -1,6 +1,6 @@
 # Diagrammatica
 
-Disclaimer: the code was written with ChatGPT o1.
+Disclaimer: the code was written with ChatGPT o3-mimi-high.
 
 ## Instructions
 

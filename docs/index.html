@@ -105,7 +105,7 @@ node_(4,q1,q2,-p1,-p2)*
 node_(5,q3,q4,p1,p2)`;
                 document.getElementById('graphInput').value = defaultValue;
             }
-            document.getElementById('renderBtn').click();
+            renderGraph();
         });
 
         /**
@@ -310,8 +310,10 @@ node_(5,q3,q4,p1,p2)`;
             });
         }
 
-        // Render the graph(s) when the button is clicked.
-        document.getElementById('renderBtn').addEventListener('click', () => {
+        /**
+         * Reads the input, updates the URL, and renders diagrams.
+         */
+        function renderGraph() {
             // Get the text area contents (with all whitespace and newlines kept).
             let inputStr = document.getElementById('graphInput').value;
 
@@ -331,6 +333,11 @@ node_(5,q3,q4,p1,p2)`;
             // Parse the input string and render the graph.
             const diagrams = parseDiagrams(inputStr);
             renderAllDiagrams(diagrams);
+        }
+
+        // Render the graph(s) when the button is clicked.
+        document.getElementById('renderBtn').addEventListener('click', () => {
+            renderGraph();
         });
     </script>
 </body>
