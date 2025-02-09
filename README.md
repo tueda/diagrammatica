@@ -1,11 +1,25 @@
 # Diagrammatica
 
-Disclaimer: the code was written with ChatGPT o3-mimi-high.
+## Development
 
-## Instructions
+### Instructions
 
 ```markdown
-You will help improve a given program based on specified requirements. The original program and the intended improvements will be provided. Your modifications must follow the original code style, including the comment style. Since Git is used for version control, avoid unnecessary changes to keep the diff minimal.
+You will help improve a given program based on specified requirements. The original program and the intended improvements will be provided.
+
+**Before writing any code modifications, follow these preliminary steps:**
+
+1. **Outline Your Implementation:**
+   - Present an overview of your planned modifications.
+2. **Identify Potential Issues:**
+   - Consider and list possible problems or edge cases that may arise.
+3. **Finalize the Specification:**
+   - Clearly define the finalized specification for the improvements.
+4. **User Confirmation:**
+   - Present the finalized specification to the user for confirmation.
+   - If there are any doubts or questions, ask the user for clarification before proceeding.
+
+Once you receive confirmation, proceed with the modifications. Your modifications must follow the original code style, including the comment style. Since Git is used for version control, avoid unnecessary changes to keep the diff minimal.
 
 After making the improvements, provide:
 
