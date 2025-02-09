@@ -89,6 +89,11 @@
     </div>
 
     <script>
+        // Helper: round a value to 3 decimal places.
+        function round3(val) {
+            return Math.round(val * 1000) / 1000;
+        }
+
         // Read the "g" query parameter on page load, and set the textarea.
         window.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(window.location.search);
@@ -105,6 +110,21 @@ node_(4,q1,q2,-p1,-p2)*
 node_(5,q3,q4,p1,p2)`;
                 document.getElementById('graphInput').value = defaultValue;
             }
+            // Load saved node positions from the "p" query parameter.
+            const savedPositionsParam = params.get('p');
+            if (savedPositionsParam) {
+                try {
+                    const decompressedPositions = LZString.decompressFromEncodedURIComponent(savedPositionsParam);
+                    // Initialize as array.
+                    window.savedPositions = JSON.parse(decompressedPositions);
+                } catch (e) {
+                    window.savedPositions = [];
+                }
+            } else {
+                window.savedPositions = [];
+            }
+            // Also initialize saved graph structure storage as an array.
+            window.savedGraphStructure = [];
             renderGraph();
         });
 
@@ -244,8 +264,22 @@ node_(5,q3,q4,p1,p2)`;
         }
 
         /**
+         * Updates the URL with the compressed node positions stored in window.savedPositions.
+         * Saved positions are now stored as flattened arrays of numbers.
+         */
+        function updatePositionsInURL() {
+            const params = new URLSearchParams(window.location.search);
+            const jsonStr = JSON.stringify(window.savedPositions);
+            const compressed = LZString.compressToEncodedURIComponent(jsonStr);
+            params.set('p', compressed);
+            const newUrl = window.location.pathname + '?' + params.toString() + window.location.hash;
+            window.history.replaceState({}, '', newUrl);
+        }
+
+        /**
          * Renders one Cytoscape canvas for each diagram,
          * arranging them in a grid that accommodates any number of diagrams.
+         * Saved positions are stored as flattened arrays: [x1, y1, x2, y2, ...].
          */
         function renderAllDiagrams(diagramStrings) {
             const n = diagramStrings.length;
@@ -257,13 +291,16 @@ node_(5,q3,q4,p1,p2)`;
             container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
             container.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
 
-            diagramStrings.forEach(ds => {
+            diagramStrings.forEach((ds, index) => {
                 const cell = document.createElement('div');
                 cell.className = 'diagram';
                 container.appendChild(cell);
 
                 const elements = parseGraph(ds);
-                cytoscape({
+                // For Render button, saved positions are discarded, so usePreset is false.
+                const usePreset = (window.savedPositions && window.savedPositions[index]) ? true : false;
+                const layoutOpts = usePreset ? { name: 'preset', animate: false } : { name: 'cose', padding: 30 };
+                const cy = cytoscape({
                     container: cell,
                     elements: elements,
                     style: [
@@ -290,16 +327,50 @@ node_(5,q3,q4,p1,p2)`;
                             }
                         }
                     ],
-                    layout: {
-                        name: 'cose',
-                        padding: 30
+                    layout: layoutOpts
+                });
+                // Apply saved positions once Cytoscape is ready.
+                cy.ready(() => {
+                    if (window.savedPositions && window.savedPositions[index]) {
+                        const flatArray = window.savedPositions[index];
+                        const nodes = cy.nodes();
+                        if (flatArray.length === nodes.length * 2) {
+                            for (let i = 0; i < nodes.length; i++) {
+                                nodes[i].position({
+                                    x: flatArray[2 * i],
+                                    y: flatArray[2 * i + 1]
+                                });
+                            }
+                        }
                     }
+                    cy.fit();
+                });
+                // Save all node positions on layoutstop as a flattened array.
+                cy.on('layoutstop', function () {
+                    const flatArray = [];
+                    cy.nodes().forEach(node => {
+                        const pos = node.position();
+                        flatArray.push(round3(pos.x), round3(pos.y));
+                    });
+                    window.savedPositions[index] = flatArray;
+                    updatePositionsInURL();
+                });
+                // Update saved positions on node drag end or free event.
+                cy.nodes().on('dragend free', function () {
+                    const flatArray = [];
+                    cy.nodes().forEach(n => {
+                        const pos = n.position();
+                        flatArray.push(round3(pos.x), round3(pos.y));
+                    });
+                    window.savedPositions[index] = flatArray;
+                    updatePositionsInURL();
                 });
             });
         }
 
         /**
          * Reads the input, updates the URL, and renders diagrams.
+         * On Render button click, saved positions are discarded.
          */
         function renderGraph() {
             // Get the text area contents (with all whitespace and newlines kept).
@@ -320,11 +391,28 @@ node_(5,q3,q4,p1,p2)`;
 
             // Parse the input string and render the graph.
             const diagrams = parseDiagrams(inputStr);
+            // Check graph structure (nodes and edges) and update savedGraphStructure.
+            diagrams.forEach((ds, index) => {
+                const elements = parseGraph(ds);
+                const currentNodes = elements.filter(e => !e.data.source).map(e => e.data.id).sort();
+                const currentEdges = elements.filter(e => e.data.source).map(e => e.data.id).sort();
+                const currentStructure = JSON.stringify({ nodes: currentNodes, edges: currentEdges });
+                if (window.savedGraphStructure && window.savedGraphStructure[index]) {
+                    if (window.savedGraphStructure[index] !== currentStructure) {
+                        delete window.savedPositions[index];
+                    }
+                }
+                window.savedGraphStructure = window.savedGraphStructure || [];
+                window.savedGraphStructure[index] = currentStructure;
+            });
             renderAllDiagrams(diagrams);
         }
 
         // Render the graph(s) when the button is clicked.
+        // When Render button is clicked, always discard saved positions.
         document.getElementById('renderBtn').addEventListener('click', () => {
+            window.savedPositions = [];
+            window.savedGraphStructure = [];
             renderGraph();
         });
         // Auto-render on input change with debounce.
